@@ -1,7 +1,11 @@
 (function () {
   "use strict";
 
-  var STORAGE_KEY = "tihaya-gavan-posts";
+  var SUPABASE_URL = "https://nlzhlqaqywwmtwymtlbs.supabase.co";
+  var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5semhscWFxeXd3bXR3eW10bGJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0MDM1NDUsImV4cCI6MjEwNTk3OTU0NX0.jFwkwskdU_fBRe0VL6SZc0n7FdqNJ_b28XuGfVznTvA";
+
+  var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
   var THEME_KEY = "tihaya-gavan-theme";
 
   var CATEGORY_CLASS = {
@@ -22,54 +26,6 @@
     "нет смысла жить", "лучше бы я умер", "лучше бы я умерла", "жить не хочется",
     "самоповрежд", "причинить себе боль", "уйти из жизни"
   ];
-
-  /* ---------- storage ---------- */
-
-  function loadPosts() {
-    try {
-      var raw = window.localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) {
-      return [];
-    }
-  }
-
-  function savePosts(posts) {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
-  }
-
-  function makeId() {
-    if (window.crypto && window.crypto.randomUUID) {
-      return window.crypto.randomUUID();
-    }
-    return "id-" + Date.now() + "-" + Math.random().toString(16).slice(2);
-  }
-
-  /* ---------- cross-tab realtime ---------- */
-
-  var channel = ("BroadcastChannel" in window) ? new BroadcastChannel("tihaya-gavan-channel") : null;
-
-  function broadcastUpdate() {
-    if (channel) {
-      channel.postMessage("update");
-    }
-  }
-
-  if (channel) {
-    channel.onmessage = function (e) {
-      if (e.data === "update") {
-        renderFeed();
-      }
-    };
-  }
-
-  window.addEventListener("storage", function (e) {
-    if (e.key === STORAGE_KEY) {
-      renderFeed();
-    }
-  });
-
-  setInterval(renderFeed, 5000);
 
   /* ---------- time formatting ---------- */
 
@@ -172,42 +128,60 @@
         return;
       }
 
-      var post = {
-        id: makeId(),
-        category: el.categorySelect.value,
-        text: text,
-        createdAt: new Date().toISOString(),
-        resolved: false,
-        replies: []
-      };
+      el.submitPost.disabled = true;
 
-      var posts = loadPosts();
-      posts.unshift(post);
-      savePosts(posts);
-      broadcastUpdate();
-
-      el.postText.value = "";
-      updateCounter(el.postText, el.postCounter, 2000);
-      el.crisisBanner.hidden = true;
-
-      renderFeed();
+      sb.from("posts")
+        .insert({ category: el.categorySelect.value, text: text })
+        .then(function (res) {
+          el.submitPost.disabled = false;
+          if (res.error) {
+            el.postError.textContent = "Не получилось отправить. Попробуй ещё раз.";
+            return;
+          }
+          el.postText.value = "";
+          updateCounter(el.postText, el.postCounter, 2000);
+          el.crisisBanner.hidden = true;
+          renderFeed();
+        });
     });
+  }
+
+  /* ---------- data ---------- */
+
+  function fetchPosts() {
+    return sb
+      .from("posts")
+      .select("id, category, text, resolved, created_at, replies(id, text, created_at)")
+      .order("created_at", { ascending: false })
+      .order("created_at", { foreignTable: "replies", ascending: true })
+      .then(function (res) {
+        return res.error ? [] : res.data;
+      });
+  }
+
+  function addReply(postId, text) {
+    return sb.from("replies").insert({ post_id: postId, text: text });
+  }
+
+  function markResolved(postId) {
+    return sb.from("posts").update({ resolved: true }).eq("id", postId);
   }
 
   /* ---------- feed rendering ---------- */
 
   function renderFeed() {
-    var posts = loadPosts();
-    el.feedList.innerHTML = "";
+    fetchPosts().then(function (posts) {
+      el.feedList.innerHTML = "";
 
-    if (posts.length === 0) {
-      el.emptyState.hidden = false;
-      return;
-    }
-    el.emptyState.hidden = true;
+      if (posts.length === 0) {
+        el.emptyState.hidden = false;
+        return;
+      }
+      el.emptyState.hidden = true;
 
-    posts.forEach(function (post) {
-      el.feedList.appendChild(renderPost(post));
+      posts.forEach(function (post) {
+        el.feedList.appendChild(renderPost(post));
+      });
     });
   }
 
@@ -220,10 +194,11 @@
     tag.textContent = post.category;
     tag.classList.add(CATEGORY_CLASS[post.category] || "tag-other");
 
-    node.querySelector(".post-time").textContent = relativeTime(post.createdAt);
+    node.querySelector(".post-time").textContent = relativeTime(post.created_at);
     node.querySelector(".post-text").textContent = post.text;
 
-    var replyCount = post.replies.length;
+    var replies = post.replies || [];
+    var replyCount = replies.length;
     node.querySelector(".reply-count").textContent =
       replyCount === 0 ? "Пока нет ответов" : replyCount + " " + pluralizeReplies(replyCount);
 
@@ -236,7 +211,10 @@
       resolvedBadge.hidden = true;
       resolveBtn.hidden = false;
       resolveBtn.addEventListener("click", function () {
-        markResolved(post.id);
+        resolveBtn.disabled = true;
+        markResolved(post.id).then(function () {
+          renderFeed();
+        });
       });
     }
 
@@ -276,14 +254,22 @@
         return;
       }
 
-      addReply(post.id, text);
-      replyTextarea.value = "";
-      updateCounter(replyTextarea, replyCounter, 800);
-      replyForm.hidden = true;
+      submitReply.disabled = true;
+      addReply(post.id, text).then(function (res) {
+        submitReply.disabled = false;
+        if (res.error) {
+          replyError.textContent = "Не получилось отправить. Попробуй ещё раз.";
+          return;
+        }
+        replyTextarea.value = "";
+        updateCounter(replyTextarea, replyCounter, 800);
+        replyForm.hidden = true;
+        renderFeed();
+      });
     });
 
     var repliesList = node.querySelector(".replies-list");
-    post.replies.forEach(function (reply) {
+    replies.forEach(function (reply) {
       repliesList.appendChild(renderReply(reply));
     });
 
@@ -293,7 +279,7 @@
   function renderReply(reply) {
     var node = el.replyTemplate.content.cloneNode(true);
     node.querySelector(".reply-text").textContent = reply.text;
-    node.querySelector(".reply-time").textContent = relativeTime(reply.createdAt);
+    node.querySelector(".reply-time").textContent = relativeTime(reply.created_at);
     return node;
   }
 
@@ -305,26 +291,13 @@
     return "ответов";
   }
 
-  /* ---------- mutations ---------- */
+  /* ---------- realtime ---------- */
 
-  function addReply(postId, text) {
-    var posts = loadPosts();
-    var post = posts.find(function (p) { return p.id === postId; });
-    if (!post) return;
-    post.replies.push({ id: makeId(), text: text, createdAt: new Date().toISOString() });
-    savePosts(posts);
-    broadcastUpdate();
-    renderFeed();
-  }
-
-  function markResolved(postId) {
-    var posts = loadPosts();
-    var post = posts.find(function (p) { return p.id === postId; });
-    if (!post) return;
-    post.resolved = true;
-    savePosts(posts);
-    broadcastUpdate();
-    renderFeed();
+  function initRealtime() {
+    sb.channel("public-feed")
+      .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, renderFeed)
+      .on("postgres_changes", { event: "*", schema: "public", table: "replies" }, renderFeed)
+      .subscribe();
   }
 
   /* ---------- init ---------- */
@@ -335,5 +308,6 @@
     initComposer();
     updateCounter(el.postText, el.postCounter, 2000);
     renderFeed();
+    initRealtime();
   });
 })();
