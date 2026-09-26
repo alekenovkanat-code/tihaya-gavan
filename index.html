@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Тихая Гавань — анонимная поддержка</title>
+<meta name="description" content="Анонимное место, где можно рассказать о наболевшем и получить поддержку.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Перейти к содержимому</a>
+
+<header class="site-header">
+  <div class="container header-row">
+    <div class="brand">
+      <span class="brand-icon" aria-hidden="true">🕊️</span>
+      <div>
+        <h1 class="brand-title">Тихая Гавань</h1>
+        <p class="brand-subtitle">Пиши. Тебя услышат. Анонимно.</p>
+      </div>
+    </div>
+    <button id="theme-toggle" class="icon-button" type="button" aria-label="Переключить тему">
+      <span id="theme-icon" aria-hidden="true">🌙</span>
+    </button>
+  </div>
+</header>
+
+<div class="disclaimer" role="note">
+  <div class="container">
+    Это не терапия и не замена специалисту — простая поддержка «человек человеку».
+    Если тебе очень тяжело прямо сейчас, пожалуйста, обратись за помощью: телефон доверия
+    <strong>8&nbsp;800&nbsp;2000&nbsp;122</strong> (бесплатно, круглосуточно).
+  </div>
+</div>
+
+<main id="main" class="container">
+
+  <section class="card composer" aria-labelledby="composer-heading">
+    <h2 id="composer-heading" class="card-title">Поделиться тем, что наболело</h2>
+
+    <label class="field-label" for="category-select">Категория</label>
+    <select id="category-select" class="select">
+      <option value="Работа">Работа</option>
+      <option value="Отношения">Отношения</option>
+      <option value="Семья">Семья</option>
+      <option value="Здоровье">Здоровье</option>
+      <option value="Деньги">Деньги</option>
+      <option value="Другое" selected>Другое</option>
+    </select>
+
+    <label class="field-label" for="post-text">Твоя история</label>
+    <textarea
+      id="post-text"
+      class="textarea"
+      placeholder="Расскажи, что случилось. Здесь никто не узнает, что это ты…"
+      maxlength="2000"
+      rows="5"
+      aria-describedby="post-counter post-error"
+    ></textarea>
+
+    <div class="composer-meta">
+      <span id="post-counter" class="counter">0 / 2000</span>
+      <span id="post-error" class="field-error" role="alert" aria-live="polite"></span>
+    </div>
+
+    <div id="crisis-banner" class="crisis-banner" role="alert" hidden>
+      <p>
+        Похоже, тебе сейчас очень плохо. Ты не обязан(а) справляться с этим в одиночку —
+        поговори с близким человеком или позвони на бесплатную линию психологической помощи:
+        <strong>8&nbsp;800&nbsp;2000&nbsp;122</strong>. Твоё сообщение всё равно будет опубликовано,
+        если ты решишь его отправить.
+      </p>
+    </div>
+
+    <div class="composer-actions">
+      <button id="submit-post" class="btn btn-primary" type="button">Поделиться анонимно</button>
+    </div>
+  </section>
+
+  <section class="feed-section" aria-labelledby="feed-heading">
+    <div class="feed-heading-row">
+      <h2 id="feed-heading" class="card-title">Лента</h2>
+      <span class="feed-live" title="Обновляется автоматически">● в реальном времени</span>
+    </div>
+
+    <div id="empty-state" class="empty-state" hidden>
+      <p>Пока здесь ничего нет.</p>
+      <p>Стань первым, кто поделится.</p>
+    </div>
+
+    <ul id="feed-list" class="feed-list" aria-live="polite"></ul>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    Тихая Гавань не хранит и не запрашивает никаких личных данных. Все посты и ответы анонимны.
+  </div>
+</footer>
+
+<template id="post-template">
+  <li class="card post" data-post-id="">
+    <div class="post-header">
+      <span class="tag"></span>
+      <span class="post-time"></span>
+    </div>
+    <p class="post-text"></p>
+    <div class="post-footer">
+      <button class="link-button reply-toggle" type="button">Ответить советом</button>
+      <span class="reply-count"></span>
+      <span class="resolved-badge" hidden>Стало легче ✓</span>
+      <button class="link-button resolve-btn" type="button">Стало легче</button>
+    </div>
+
+    <div class="reply-form" hidden>
+      <label class="field-label">Твой совет или слова поддержки</label>
+      <textarea class="textarea reply-textarea" maxlength="800" rows="3" placeholder="Напиши то, что поддержало бы тебя самого(-у)…"></textarea>
+      <div class="composer-meta">
+        <span class="counter reply-counter">0 / 800</span>
+        <span class="field-error reply-error" role="alert" aria-live="polite"></span>
+      </div>
+      <div class="composer-actions">
+        <button class="btn btn-secondary submit-reply" type="button">Отправить ответ</button>
+      </div>
+    </div>
+
+    <ul class="replies-list"></ul>
+  </li>
+</template>
+
+<template id="reply-template">
+  <li class="reply">
+    <p class="reply-text"></p>
+    <span class="reply-time"></span>
+  </li>
+</template>
+
+<script src="js/app.js"></script>
+</body>
+</html>
