@@ -43,5 +43,20 @@ grant select, insert, update on public.posts to anon, authenticated;
 grant select, insert on public.replies to anon, authenticated;
 
 -- Включаем realtime-трансляцию изменений, чтобы лента обновлялась у всех посетителей сразу.
-alter publication supabase_realtime add table public.posts;
-alter publication supabase_realtime add table public.replies;
+-- Обёрнуто проверкой, чтобы скрипт можно было безопасно запускать повторно.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'posts'
+  ) then
+    alter publication supabase_realtime add table public.posts;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'replies'
+  ) then
+    alter publication supabase_realtime add table public.replies;
+  end if;
+end $$;
